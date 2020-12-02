@@ -123,6 +123,9 @@ bool ignoreNextReading      = false;
 TickType_t xTicks;
 bool useLotId               = true;
 bool pendingNewGame         = false;
+int gameWon                 = 0;
+int gameLost                = 0;
+int gameTied                = 0;
 
 char LCDL1[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL2[TX_UART_MESSAGE_LENGTH] = "";
@@ -130,6 +133,7 @@ char LCDL3[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL4[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL5[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL6[TX_UART_MESSAGE_LENGTH] = "";
+char LCDL7[TX_UART_MESSAGE_LENGTH] = "";
 /*----------------------------------------------------------------------------*/
 
 static void HeartBeatTask(void *pvParameters){
@@ -199,6 +203,12 @@ static void LCDTask(void *pvParameters){
                             10,
                             70,
                             OPAQUE_TEXT);
+        Graphics_drawString(&g_sContext,
+                            LCDL7,
+                            AUTO_STRING_LENGTH,
+                            10,
+                            110,
+                            OPAQUE_TEXT);
         vTaskDelay( pdMS_TO_TICKS(DELAY_MS) );
     }
 }
@@ -252,13 +262,18 @@ static void UARTPrintingTask(void *pvParameters) {
 
                 if (message == i_win_message) {
                     strncpy(LCDL5, "Tu ganas!", TX_UART_MESSAGE_LENGTH);
+                    gameWon++;
                 } else if (message == machine_wins_message) {
                     strncpy(LCDL5, "Tu pierdes!", TX_UART_MESSAGE_LENGTH);
+                    gameLost++;
                 }else if (message == tie_message) {
                     strncpy(LCDL5, "Empate!", TX_UART_MESSAGE_LENGTH);
+                    gameTied++;
                 }
 
-                strncpy(LCDL6, "Pulsa s1 para jugar de nuevo!", TX_UART_MESSAGE_LENGTH);
+                sprintf(toPrint,  "Gan %d Emp %d Per %d!", gameWon, gameTied, gameLost);
+                strncpy(LCDL6, toPrint, TX_UART_MESSAGE_LENGTH);
+                strncpy(LCDL7, "Pulsa s1 para jugar de nuevo!", TX_UART_MESSAGE_LENGTH);
                 pendingNewGame = true;
             }
         }
@@ -278,6 +293,8 @@ void startGame() {
     strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
     sprintf(toPrint,  "%s", getMove(my_play));
     strncpy(LCDL2, toPrint, TX_UART_MESSAGE_LENGTH);
+    sprintf(toPrint,  "Gan %d Emp %d Per %d!", gameWon, gameTied, gameLost);
+    strncpy(LCDL7, toPrint, TX_UART_MESSAGE_LENGTH);
 
     firstInitialization = false;
     ignoreNextReading = false;
