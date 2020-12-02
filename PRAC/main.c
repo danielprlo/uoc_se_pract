@@ -93,7 +93,6 @@ static void LCDTask(void *pvParameters);
 void callback(adc_result input);
 void buttonCallback(void);
 const char* getMove(int play);
-void printString(char str[], bool newLine);
 void restartGame();
 void InitializeLCD();
 enum message_code getMessageWinner(void);
@@ -123,11 +122,14 @@ bool firstInitialization    = true;
 bool ignoreNextReading      = false;
 TickType_t xTicks;
 bool useLotId               = true;
+bool pendingNewGame         = false;
+
 char LCDL1[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL2[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL3[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL4[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL5[TX_UART_MESSAGE_LENGTH] = "";
+char LCDL6[TX_UART_MESSAGE_LENGTH] = "";
 /*----------------------------------------------------------------------------*/
 
 static void HeartBeatTask(void *pvParameters){
@@ -190,6 +192,13 @@ static void LCDTask(void *pvParameters){
                             10,
                             50,
                             OPAQUE_TEXT);
+
+        Graphics_drawString(&g_sContext,
+                            LCDL6,
+                            AUTO_STRING_LENGTH,
+                            10,
+                            70,
+                            OPAQUE_TEXT);
         vTaskDelay( pdMS_TO_TICKS(DELAY_MS) );
     }
 }
@@ -231,13 +240,6 @@ static void UARTPrintingTask(void *pvParameters) {
     char toPrint[TX_UART_MESSAGE_LENGTH];
     message_code message;
     for(;;){
-        if (firstInitialization == true) {
-            strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
-            sprintf(toPrint,  "%s", getMove(my_play));
-            strncpy(LCDL2, toPrint, TX_UART_MESSAGE_LENGTH);
-            firstInitialization = false;
-        }
-
         if( xQueueReceive( xQueueCommands, &message, portMAX_DELAY ) == pdPASS){
             if (message == play_update_message) {
                 strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
@@ -255,7 +257,9 @@ static void UARTPrintingTask(void *pvParameters) {
                 }else if (message == tie_message) {
                     strncpy(LCDL5, "Empate!", TX_UART_MESSAGE_LENGTH);
                 }
-                restartGame();
+
+                strncpy(LCDL6, "Pulsa s1 para jugar de nuevo!", TX_UART_MESSAGE_LENGTH);
+                pendingNewGame = true;
             }
         }
 
@@ -263,28 +267,20 @@ static void UARTPrintingTask(void *pvParameters) {
     }
 }
 
-void restartGame() {
+void startGame() {
     char toPrint[TX_UART_MESSAGE_LENGTH];
-    sprintf(toPrint, "\n\r");
-    printString(toPrint, true);
+    memset(LCDL2, 0, TX_UART_MESSAGE_LENGTH);
+    memset(LCDL3, 0, TX_UART_MESSAGE_LENGTH);
+    memset(LCDL4, 0, TX_UART_MESSAGE_LENGTH);
+    memset(LCDL5, 0, TX_UART_MESSAGE_LENGTH);
+    memset(LCDL6, 0, TX_UART_MESSAGE_LENGTH);
+    Graphics_clearDisplay(&g_sContext);
+    strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
+    sprintf(toPrint,  "%s", getMove(my_play));
+    strncpy(LCDL2, toPrint, TX_UART_MESSAGE_LENGTH);
 
-    firstInitialization = true;
+    firstInitialization = false;
     ignoreNextReading = false;
-}
-
-void printString(char str[], bool newLine) {
-    char message[TX_UART_MESSAGE_LENGTH];
-
-    if (!newLine) {
-        sprintf(message, "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-        uart_print(message);
-    } else {
-        sprintf(message, "\n\r");
-        uart_print(message);
-    }
-
-    sprintf(message, str);
-    uart_print(message);
 }
 
 const char* getMove(int play) {
@@ -357,8 +353,14 @@ void callback(adc_result input) {
 }
 
 void buttonCallback(void) {
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    xSemaphoreGiveFromISR(xButtonPressed,  xHigherPriorityTaskWoken);
+    if (pendingNewGame) {
+        startGame();
+        pendingNewGame = false;
+    } else {
+        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+        xSemaphoreGiveFromISR(xButtonPressed,  xHigherPriorityTaskWoken);
+    }
+
 }
 /*----------------------------------------------------------------------------*/
 
@@ -393,7 +395,7 @@ int main(int argc, char** argv)
     edu_boosterpack_joystick_init();
     edu_boosterpack_joystick_set_callback(callback);
 
-
+    startGame();
     if ( (xButtonPressed != NULL) && (xQueueCommands != NULL) && (xQueueADC != NULL)) {
 
         /* Create tasks */
