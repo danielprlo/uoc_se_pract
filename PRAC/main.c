@@ -185,7 +185,7 @@ static void LCDTask(void *pvParameters){
                             OPAQUE_TEXT);
 
         Graphics_drawString(&g_sContext,
-                            LCDL4,
+                            LCDL5,
                             AUTO_STRING_LENGTH,
                             10,
                             50,
@@ -247,8 +247,6 @@ static void UARTPrintingTask(void *pvParameters) {
                 strncpy(LCDL3, "La maquina ha escogido: ", TX_UART_MESSAGE_LENGTH);
                 sprintf(toPrint,  "%s", getMove(machine_play));
                 strncpy(LCDL4, toPrint, TX_UART_MESSAGE_LENGTH);
-
-
 
                 if (message == i_win_message) {
                     strncpy(LCDL5, "Tu ganas!", TX_UART_MESSAGE_LENGTH);

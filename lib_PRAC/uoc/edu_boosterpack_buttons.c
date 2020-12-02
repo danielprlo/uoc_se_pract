@@ -40,14 +40,14 @@
 
 /*---------------------------------defines------------------------------------*/
 
-#define BUTTON_S1_PORT          ( GPIO_PORT_P3)
-#define BUTTON_S1_PIN           ( GPIO_PIN5 )
+#define BUTTON_S1_PORT          ( GPIO_PORT_P5 )
+#define BUTTON_S1_PIN           ( GPIO_PIN1 )
 #define BUTTON_S1_EDGE          ( GPIO_HIGH_TO_LOW_TRANSITION )
 #define BUTTON_S1_IRQ           ( INT_PORT3 )
 #define BUTTON_S1_IRQ_PRIO      ( 0xFF )
 
-#define BUTTON_S2_PORT          ( GPIO_PORT_P5)
-#define BUTTON_S2_PIN           ( GPIO_PIN1 )
+#define BUTTON_S2_PORT          ( GPIO_PORT_P3 )
+#define BUTTON_S2_PIN           ( GPIO_PIN5 )
 #define BUTTON_S2_EDGE          ( GPIO_HIGH_TO_LOW_TRANSITION )
 #define BUTTON_S2_IRQ           ( INT_PORT5 )
 #define BUTTON_S2_IRQ_PRIO      ( 0xFF )
@@ -105,7 +105,7 @@ void edu_boosterpack_buttons_clear_callback(uint8_t button)
 
 /*--------------------------------interrupts----------------------------------*/
 
-void PORT3_Handler(void)
+void PORT5_IRQHandler(void)
 {
   uint_fast16_t status;
 
@@ -119,7 +119,7 @@ void PORT3_Handler(void)
   }
 }
 
-void PORT5_IRQHandler(void)
+void PORT3_Handler(void)
 {
   uint_fast16_t status;
 
