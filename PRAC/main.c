@@ -91,6 +91,7 @@ static void LCDTask(void *pvParameters);
 
 // callbacks & functions
 void callback(adc_result input);
+void callback2(adc_result input);
 void buttonCallback(void);
 const char* getMove(int play);
 void restartGame();
@@ -121,7 +122,7 @@ play machine_play           = NULL;
 bool firstInitialization    = true;
 bool ignoreNextReading      = false;
 TickType_t xTicks;
-bool useLotId               = true;
+bool useLotId               = false;
 bool pendingNewGame         = false;
 int gameWon                 = 0;
 int gameLost                = 0;
@@ -369,6 +370,11 @@ void callback(adc_result input) {
     xQueueSendFromISR(xQueueADC, &y, NULL);
 }
 
+void callback2(adc_result input) {
+    uint16_t *randId = *input;
+    srand(*randId);
+}
+
 void buttonCallback(void) {
     if (pendingNewGame) {
         startGame();
@@ -389,7 +395,9 @@ int main(int argc, char** argv)
         unsigned char *lotIdPointer = (*(volatile unsigned char*)0x00201030);
         srand(*lotIdPointer);
     }else {
-
+        edu_boosterpack_accelerometer_init();
+        edu_boosterpack_accelerometer_set_callback(callback2);
+        edu_boosterpack_accelerometer_read();
     }
 
     // Initialize semaphores and queue
