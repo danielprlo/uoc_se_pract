@@ -37,7 +37,6 @@
 #include <edu_boosterpack_accelerometer.h>
 #include <string.h>
 #include "driverlib.h"
-
 /*---------------------------------defines------------------------------------*/
 
 /*---------------------------------typedefs-----------------------------------*/

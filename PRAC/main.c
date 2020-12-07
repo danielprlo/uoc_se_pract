@@ -77,7 +77,10 @@
 #define QUEUE_SIZE                  ( 10 )
 #define TX_UART_MESSAGE_LENGTH      ( 80 )
 
-
+#define TIMER_BASE              ( TIMER_A1_BASE )
+#define TIMER_MODE              ( TIMER_A_UP_MODE )
+#define TIMER_REGISTER          ( TIMER_A_CAPTURECOMPARE_REGISTER_0 )
+#define TIMER_INTERRUPT         ( INT_TA1_0 )
 /*----------------------------------------------------------------------------*/
 
 
@@ -95,6 +98,10 @@ void buttonCallback(void);
 const char* getMove(int play);
 void restartGame();
 void InitializeLCD();
+void configureBuzzer();
+void initBuzzer(uint16_t period, uint16_t duty_cycle);
+void stopBuzzer();
+void TA1_0_IRQHandler(void);
 enum message_code getMessageWinner(void);
 
 //Task sync tools and variables
@@ -102,6 +109,24 @@ SemaphoreHandle_t xButtonPressed;   //semáforo para activar la tarea ProcessingT
 QueueHandle_t xQueueCommands;       //cola para que tanto la tarea ADCReadingTask como ProcessingTask envien comandos de tipo message_code a la tarea UARTPrintingTask
 QueueHandle_t xQueueADC;
 static Graphics_Context g_sContext;
+static Timer_A_UpModeConfig upConfig =
+{
+    TIMER_A_CLOCKSOURCE_ACLK,
+    TIMER_A_CLOCKSOURCE_DIVIDER_32,
+    0,
+    TIMER_A_TAIE_INTERRUPT_DISABLE,
+    TIMER_A_CCIE_CCR0_INTERRUPT_ENABLE,
+    TIMER_A_DO_CLEAR
+};
+
+static Timer_A_PWMConfig pwmConfig = {
+    TIMER_A_CLOCKSOURCE_SMCLK,
+    TIMER_A_CLOCKSOURCE_DIVIDER_12,
+    0,
+    TIMER_A_CAPTURECOMPARE_REGISTER_4,
+    TIMER_A_OUTPUTMODE_RESET_SET,
+    0
+};
 
 typedef enum message_code{
     play_update_message = 0,
@@ -115,6 +140,7 @@ typedef enum{
     paper = 1,
     scissors = 2,
 }play;
+
 
 play my_play                = paper;    //variables globales que contienen la jugada del usuario (my_play) y la jugada de la máquina (machine_play)
 play machine_play           = NULL;
@@ -381,6 +407,35 @@ void buttonCallback(void) {
 }
 /*----------------------------------------------------------------------------*/
 
+void configureBuzzer(void) {
+    GPIO_setAsPeripheralModuleFunctionOutputPin(GPIO_PORT_P2 , GPIO_PIN7 , GPIO_PRIMARY_MODULE_FUNCTION);
+    /* Configure timer for up mode */
+    MAP_Timer_A_configureUpMode(TIMER_BASE, &upConfig);
+    MAP_Timer_A_clearInterruptFlag(TIMER_BASE);
+    MAP_Timer_A_enableCaptureCompareInterrupt(TIMER_BASE, TIMER_REGISTER);
+    MAP_Timer_A_startCounter(TIMER_BASE, TIMER_MODE);
+    MAP_Interrupt_enableInterrupt(TIMER_INTERRUPT);
+}
+
+void initBuzzer(uint16_t period, uint16_t duty_cycle) {
+    /* Start the PWM */
+   pwmConfig.timerPeriod = period;
+   pwmConfig.dutyCycle   = duty_cycle;
+
+   Timer_A_generatePWM(TIMER_A0_BASE , &pwmConfig);
+}
+
+void stopBuzzer(void) {
+    MAP_Timer_A_stopTimer(TIMER_BASE);
+    MAP_Timer_A_stopTimer(TIMER_A0_BASE );
+}
+
+void TA1_0_IRQHandler(void) {
+    MAP_Timer_A_clearCaptureCompareInterrupt(TIMER_BASE, TIMER_REGISTER);
+    MAP_Timer_A_stopTimer(TIMER_BASE);
+    MAP_Timer_A_stopTimer(TIMER_A0_BASE);
+}
+
 int main(int argc, char** argv)
 {
     int32_t retVal = -1;
@@ -391,6 +446,39 @@ int main(int argc, char** argv)
     }else {
 
     }
+
+
+
+
+
+    /* test buzzer*/
+    configureBuzzer();
+    uint8_t volume = 10;
+    uint16_t period     = 0x13EE + volume * 0xF1;
+    uint16_t duty_cycle = 0x0C  + volume * 0xF1;
+    initBuzzer(period, duty_cycle);
+    stopBuzzer();
+
+
+
+
+
+
+
+
+
+
+
+    /* end test buzzer */
+
+
+
+
+
+
+
+
+
 
     // Initialize semaphores and queue
     xButtonPressed = xSemaphoreCreateBinary ();

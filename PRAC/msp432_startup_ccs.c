@@ -57,7 +57,7 @@ extern void EUSCIA0_IRQHandler(void);
 extern void PORT1_Handler(void);
 extern void ADC_Handler(void);
 extern void PORT5_IRQHandler(void);
-
+extern void TA1_0_IRQHandler(void);
 
 /* External declarations for the FreeRTOS interrupt handlers. */
 extern void xPortSysTickHandler( void );
@@ -96,7 +96,7 @@ void (* const interruptVectors[])(void) =
     defaultISR,                             /* COMP1 ISR                 */
     defaultISR,                             /* TA0_0 ISR                 */
     defaultISR,                             /* TA0_N ISR                 */
-	defaultISR,                             /* TA1_0 ISR                 */
+    TA1_0_IRQHandler,                             /* TA1_0 ISR                 */
     defaultISR,                             /* TA1_N ISR                 */
 	defaultISR,                             /* TA2_0 ISR                 */
     defaultISR,                             /* TA2_N ISR                 */
