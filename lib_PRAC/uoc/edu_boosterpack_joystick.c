@@ -57,12 +57,12 @@ void edu_boosterpack_joystick_init(void){
     MAP_ADC14_enableModule();
     MAP_ADC14_initModule(ADC_CLOCKSOURCE_MCLK,  ADC_PREDIVIDER_1,  ADC_DIVIDER_1, 0);
     /* Configuring GPIOs for Analog In */
-    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P6, GPIO_PIN0, GPIO_TERTIARY_MODULE_FUNCTION);
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN5, GPIO_TERTIARY_MODULE_FUNCTION);
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P4, GPIO_PIN4, GPIO_TERTIARY_MODULE_FUNCTION);
     /* Configuring ADC conversion mode and ADC Memory (ADC_MEM0 - ADC_MEM2 (A14, A13, A11) */
     MAP_ADC14_configureMultiSequenceMode(ADC_MEM0, ADC_MEM2, false);
-    MAP_ADC14_configureConversionMemory(ADC_MEM0, ADC_VREFPOS_AVCC_VREFNEG_VSS, ADC_INPUT_A9, false);
-    MAP_ADC14_configureConversionMemory(ADC_MEM1, ADC_VREFPOS_AVCC_VREFNEG_VSS, ADC_INPUT_A15, false);
+    MAP_ADC14_configureConversionMemory(ADC_MEM0, ADC_VREFPOS_AVCC_VREFNEG_VSS, ADC_INPUT_A15, false);
+    MAP_ADC14_configureConversionMemory(ADC_MEM1, ADC_VREFPOS_AVCC_VREFNEG_VSS, ADC_INPUT_A8, false);
 
     /* Enabling the interrupt when a conversion on channel 2 (end of sequence) is complete and enabling conversions */
     MAP_ADC14_enableInterrupt(ADC_INT2);

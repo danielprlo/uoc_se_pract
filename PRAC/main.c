@@ -91,7 +91,6 @@ static void LCDTask(void *pvParameters);
 
 // callbacks & functions
 void callback(adc_result input);
-void callback2(adc_result input);
 void buttonCallback(void);
 const char* getMove(int play);
 void restartGame();
@@ -124,6 +123,7 @@ bool ignoreNextReading      = false;
 TickType_t xTicks;
 bool useLotId               = false;
 bool pendingNewGame         = false;
+bool readFloatingVal        = false;
 int gameWon                 = 0;
 int gameLost                = 0;
 int gameTied                = 0;
@@ -365,14 +365,15 @@ enum message_code getMessageWinner(void) {
 
 void callback(adc_result input) {
     float x = input[0];
-    float y = input[1];
 
-    xQueueSendFromISR(xQueueADC, &y, NULL);
-}
+    if (readFloatingVal) {
+        float floatValue = input[1];
+        srand(floatValue);
+        readFloatingVal = false;
+    }
 
-void callback2(adc_result input) {
-    uint16_t *randId = *input;
-    srand(*randId);
+
+    xQueueSendFromISR(xQueueADC, &x, NULL);
 }
 
 void buttonCallback(void) {
@@ -391,14 +392,6 @@ int main(int argc, char** argv)
 {
     int32_t retVal = -1;
 
-    if (useLotId) {
-        unsigned char *lotIdPointer = (*(volatile unsigned char*)0x00201030);
-        srand(*lotIdPointer);
-    }else {
-        edu_boosterpack_accelerometer_init();
-        edu_boosterpack_accelerometer_set_callback(callback2);
-        edu_boosterpack_accelerometer_read();
-    }
 
     // Initialize semaphores and queue
     xButtonPressed = xSemaphoreCreateBinary ();
@@ -419,6 +412,14 @@ int main(int argc, char** argv)
     /* Initialize the joystick*/
     edu_boosterpack_joystick_init();
     edu_boosterpack_joystick_set_callback(callback);
+
+    if (useLotId) {
+        unsigned char *lotIdPointer = (*(volatile unsigned char*)0x00201030);
+        srand(*lotIdPointer);
+    }else {
+        readFloatingVal = true;
+        edu_boosterpack_joystick_read();
+    }
 
     startGame();
     if ( (xButtonPressed != NULL) && (xQueueCommands != NULL) && (xQueueADC != NULL)) {
