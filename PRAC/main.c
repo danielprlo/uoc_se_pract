@@ -72,7 +72,7 @@
 #define HEART_BEAT_ON_MS            ( 10 )
 #define HEART_BEAT_OFF_MS           ( 990 )
 #define DELAY_MS                    ( 100 )
-#define DELAY_DEBOUNCING            ( 200 )
+#define DELAY_DEBOUNCING            ( 400 )
 
 #define QUEUE_SIZE                  ( 10 )
 #define TX_UART_MESSAGE_LENGTH      ( 80 )
@@ -101,6 +101,7 @@ enum message_code getMessageWinner(void);
 SemaphoreHandle_t xButtonPressed;   //semáforo para activar la tarea ProcessingTask cuando se pulsa S1
 QueueHandle_t xQueueCommands;       //cola para que tanto la tarea ADCReadingTask como ProcessingTask envien comandos de tipo message_code a la tarea UARTPrintingTask
 QueueHandle_t xQueueADC;
+SemaphoreHandle_t xPlayMutex;
 static Graphics_Context g_sContext;
 
 typedef enum message_code{
@@ -121,7 +122,7 @@ play machine_play           = NULL;
 bool firstInitialization    = true;
 bool ignoreNextReading      = false;
 TickType_t xTicks;
-bool useLotId               = false;
+bool useLotId               = true;
 bool pendingNewGame         = false;
 bool readFloatingVal        = false;
 int gameWon                 = 0;
@@ -147,13 +148,8 @@ static void HeartBeatTask(void *pvParameters){
 }
 
 void InitializeLCD() {
-    /* Initializes display */
     Crystalfontz128x128_Init();
-
-    /* Set default screen orientation */
     Crystalfontz128x128_SetOrientation(LCD_ORIENTATION_UP);
-
-    /* Initializes graphics context */
     Graphics_initContext(&g_sContext, &g_sCrystalfontz128x128);
     Graphics_setForegroundColor(&g_sContext, GRAPHICS_COLOR_BLACK);
     Graphics_setBackgroundColor(&g_sContext, GRAPHICS_COLOR_WHITE);
@@ -214,15 +210,16 @@ static void LCDTask(void *pvParameters){
     }
 }
 
-
 static void ADCReadingTask(void *pvParameters) {
-    float y;
+    float x;
     for(;;){
         if (!ignoreNextReading) {
             edu_boosterpack_joystick_read();
-            if( xQueueReceive( xQueueADC, &y, portMAX_DELAY ) == pdPASS){
-                //Right choice
-               if (y > 13000) {
+            if( xQueueReceive( xQueueADC, &x, portMAX_DELAY ) == pdPASS){
+
+               xSemaphoreTake(xPlayMutex, portMAX_DELAY);
+               //Right choice
+               if (x > 13000) {
                    int newPlay = (((int)my_play+1) > 2) ? 0 : (int)my_play+1;
                    my_play = newPlay;
                    ignoreNextReading = true;
@@ -231,13 +228,14 @@ static void ADCReadingTask(void *pvParameters) {
                }
 
                //Left choice
-               if (y < 3000) {
+               if (x < 3000) {
                    int newPlay = (((int)my_play-1) < 0) ? 2 : (int)my_play-1;
                    my_play = newPlay;
                    ignoreNextReading = true;
                    message_code message = play_update_message;
                    xQueueSendFromISR(xQueueCommands, &message, NULL);
                }
+               xSemaphoreGive(xPlayMutex);
             }
         } else {
             ignoreNextReading = false;
@@ -253,28 +251,28 @@ static void UARTPrintingTask(void *pvParameters) {
     for(;;){
         if( xQueueReceive( xQueueCommands, &message, portMAX_DELAY ) == pdPASS){
             if (message == play_update_message) {
-                strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
+                strncpy(LCDL1, "Chose your move: ", TX_UART_MESSAGE_LENGTH);
                 sprintf(toPrint,  "%s", getMove(my_play));
                 strncpy(LCDL2, toPrint, TX_UART_MESSAGE_LENGTH);
             } else {
-                strncpy(LCDL3, "La maquina ha escogido: ", TX_UART_MESSAGE_LENGTH);
+                strncpy(LCDL3, "The AI chosed: ", TX_UART_MESSAGE_LENGTH);
                 sprintf(toPrint,  "%s", getMove(machine_play));
                 strncpy(LCDL4, toPrint, TX_UART_MESSAGE_LENGTH);
 
                 if (message == i_win_message) {
-                    strncpy(LCDL5, "Tu ganas!", TX_UART_MESSAGE_LENGTH);
+                    strncpy(LCDL5, "You win!", TX_UART_MESSAGE_LENGTH);
                     gameWon++;
                 } else if (message == machine_wins_message) {
-                    strncpy(LCDL5, "Tu pierdes!", TX_UART_MESSAGE_LENGTH);
+                    strncpy(LCDL5, "You lose!", TX_UART_MESSAGE_LENGTH);
                     gameLost++;
                 }else if (message == tie_message) {
-                    strncpy(LCDL5, "Empate!", TX_UART_MESSAGE_LENGTH);
+                    strncpy(LCDL5, "Tie!", TX_UART_MESSAGE_LENGTH);
                     gameTied++;
                 }
 
-                sprintf(toPrint,  "Gan %d Emp %d Per %d!", gameWon, gameTied, gameLost);
+                sprintf(toPrint,  "Win %d Tie %d Los %d!", gameWon, gameTied, gameLost);
                 strncpy(LCDL6, toPrint, TX_UART_MESSAGE_LENGTH);
-                strncpy(LCDL7, "Pulsa s1 para jugar de nuevo!", TX_UART_MESSAGE_LENGTH);
+                strncpy(LCDL7, "S1 to play again!", TX_UART_MESSAGE_LENGTH);
                 pendingNewGame = true;
             }
         }
@@ -285,16 +283,24 @@ static void UARTPrintingTask(void *pvParameters) {
 
 void startGame() {
     char toPrint[TX_UART_MESSAGE_LENGTH];
+
+    //Clear LCD strings
     memset(LCDL2, 0, TX_UART_MESSAGE_LENGTH);
     memset(LCDL3, 0, TX_UART_MESSAGE_LENGTH);
     memset(LCDL4, 0, TX_UART_MESSAGE_LENGTH);
     memset(LCDL5, 0, TX_UART_MESSAGE_LENGTH);
     memset(LCDL6, 0, TX_UART_MESSAGE_LENGTH);
+
+    //Clear display
     Graphics_clearDisplay(&g_sContext);
-    strncpy(LCDL1, "Introduce tu jugada: ", TX_UART_MESSAGE_LENGTH);
+
+    //Set new game strings
+    strncpy(LCDL1, "Chose your move: ", TX_UART_MESSAGE_LENGTH);
     sprintf(toPrint,  "%s", getMove(my_play));
     strncpy(LCDL2, toPrint, TX_UART_MESSAGE_LENGTH);
-    sprintf(toPrint,  "Gan %d Emp %d Per %d!", gameWon, gameTied, gameLost);
+
+    //Set scores
+    sprintf(toPrint,  "Win %d Tie %d Los %d!", gameWon, gameTied, gameLost);
     strncpy(LCDL7, toPrint, TX_UART_MESSAGE_LENGTH);
 
     firstInitialization = false;
@@ -303,15 +309,15 @@ void startGame() {
 
 const char* getMove(int play) {
     if (play == rock) {
-        return "PIEDRA ";
+        return "ROCK    ";
     }
 
     if (play == scissors) {
-        return "TIJERAS";
+        return "SCISSORS";
     }
 
     if (play == paper) {
-        return "PAPEL  ";
+        return "PAPER   ";
     }
 
     return 'Unkown move';
@@ -372,7 +378,6 @@ void callback(adc_result input) {
         readFloatingVal = false;
     }
 
-
     xQueueSendFromISR(xQueueADC, &x, NULL);
 }
 
@@ -384,7 +389,6 @@ void buttonCallback(void) {
         BaseType_t xHigherPriorityTaskWoken = pdFALSE;
         xSemaphoreGiveFromISR(xButtonPressed,  xHigherPriorityTaskWoken);
     }
-
 }
 /*----------------------------------------------------------------------------*/
 
@@ -392,12 +396,11 @@ int main(int argc, char** argv)
 {
     int32_t retVal = -1;
 
-
     // Initialize semaphores and queue
     xButtonPressed = xSemaphoreCreateBinary ();
     xQueueCommands = xQueueCreate( QUEUE_SIZE, sizeof( message_code ) );
-    xQueueADC = xQueueCreate( QUEUE_SIZE, sizeof( adc_result ) );
-
+    xQueueADC      = xQueueCreate( QUEUE_SIZE, sizeof( adc_result ) );
+    xPlayMutex     = xSemaphoreCreateMutex();
     /* Initialize the board */
     board_init();
     InitializeLCD();
@@ -422,7 +425,8 @@ int main(int argc, char** argv)
     }
 
     startGame();
-    if ( (xButtonPressed != NULL) && (xQueueCommands != NULL) && (xQueueADC != NULL)) {
+
+    if ( (xButtonPressed != NULL) && (xQueueCommands != NULL) && (xQueueADC != NULL) && (xPlayMutex != NULL)) {
 
         /* Create tasks */
         retVal = xTaskCreate(HeartBeatTask, "HeartBeatTask", HEARTBEAT_STACK_SIZE, NULL, HEARTBEAT_TASK_PRIORITY, NULL );
