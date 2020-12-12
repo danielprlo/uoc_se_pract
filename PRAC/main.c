@@ -80,8 +80,6 @@
 
 /*----------------------------------------------------------------------------*/
 
-
-
 // Tasks
 static void HeartBeatTask(void *pvParameters);
 static void ADCReadingTask(void *pvParameters);
@@ -117,18 +115,22 @@ typedef enum{
     scissors = 2,
 }play;
 
+TickType_t xTicks;
 play my_play                = paper;    //variables globales que contienen la jugada del usuario (my_play) y la jugada de la máquina (machine_play)
 play machine_play           = NULL;
+
+//Helper variables
 bool firstInitialization    = true;
 bool ignoreNextReading      = false;
-TickType_t xTicks;
-bool useLotId               = true;
 bool pendingNewGame         = false;
 bool readFloatingVal        = false;
+
+//Game stadistics
 int gameWon                 = 0;
 int gameLost                = 0;
 int gameTied                = 0;
 
+//Strings for each LCD line
 char LCDL1[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL2[TX_UART_MESSAGE_LENGTH] = "";
 char LCDL3[TX_UART_MESSAGE_LENGTH] = "";
@@ -395,6 +397,7 @@ void buttonCallback(void) {
 int main(int argc, char** argv)
 {
     int32_t retVal = -1;
+    bool useLotId  = false;
 
     // Initialize semaphores and queue
     xButtonPressed = xSemaphoreCreateBinary ();
